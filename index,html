@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina Wheel 3D - 夢幻彩色液態玻璃 3D 轉盤樂園</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Fredoka & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Three.js 3D Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        * {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #0d0a1a;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Ambient Liquid Glow Canvas Background */
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Cute Glassmorphism Panel UI Overlay */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1.5px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.4);
+        }
+
+        .glass-button {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.08));
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.5);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .glass-button:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.18));
+            box-shadow: 0 10px 28px rgba(255, 105, 180, 0.4),
+                        inset 0 1px 3px rgba(255, 255, 255, 0.8);
+            transform: translateY(-3px) scale(1.03);
+        }
+
+        .glass-button:active {
+            transform: translateY(1px) scale(0.97);
+        }
+
+        .glass-input {
+            background: rgba(15, 10, 30, 0.6);
+            border: 1.5px solid rgba(255, 255, 255, 0.22);
+            backdrop-filter: blur(12px);
+            color: #fff;
+            transition: all 0.2s ease;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: rgba(255, 150, 220, 0.8);
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.4);
+        }
+
+        .glow-text {
+            text-shadow: 0 0 18px rgba(255, 182, 193, 0.8), 0 0 35px rgba(0, 223, 216, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 182, 193, 0.4);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 182, 193, 0.7);
+        }
+    </style>
+</head>
+<body class="text-slate-100 flex flex-col justify-between select-none">
+
+    <!-- 3D WEBGL CONTAINER -->
+    <div id="webgl-container"></div>
+
+    <!-- OVERLAY UI HEADER & CONTROLS -->
+    <div class="relative z-10 p-3 md:p-5 flex flex-col gap-4 pointer-events-none max-w-7xl mx-auto w-full">
+        
+        <!-- Header Bar -->
+        <header class="glass-panel rounded-3xl p-3 md:p-4 flex flex-wrap justify-between items-center gap-3 pointer-events-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-pink-400 via-purple-400 to-cyan-300 flex items-center justify-center text-white text-2xl shadow-lg shadow-pink-500/40 animate-pulse">
+                    <i class="fa-solid fa-shapes"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-2xl font-black tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-pink-200 via-purple-200 to-cyan-200 glow-text">
+                        Lumina Wheel 3D
+                    </h1>
+                    <p class="text-[11px] text-pink-200/80 font-light">夢幻彩色液態玻璃 3D 轉盤樂園</p>
+                </div>
+            </div>
+
+            <!-- Header Quick Tools -->
+            <div class="flex items-center gap-2">
+                <button id="soundToggleBtn" onclick="toggleSound()" class="glass-button px-3.5 py-2 rounded-2xl text-xs flex items-center gap-2 text-slate-100" title="切換音效">
+                    <i id="soundIcon" class="fa-solid fa-volume-high text-cyan-300"></i>
+                    <span class="hidden sm:inline font-bold" id="soundStatusText">可愛音效</span>
+                </button>
+                <button onclick="resetCameraView()" class="glass-button px-3.5 py-2 rounded-2xl text-xs flex items-center gap-2 text-slate-100 hover:text-pink-200" title="重設 3D 視角">
+                    <i class="fa-solid fa-camera-rotate text-pink-300"></i>
+                    <span class="hidden sm:inline font-bold">重置視角</span>
+                </button>
+                <button onclick="toggleInfoModal()" class="glass-button w-9 h-9 rounded-2xl flex items-center justify-center text-slate-100 hover:text-white" title="玩法說明">
+                    <i class="fa-solid fa-star text-yellow-300"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 3D Wheels Manager Bar -->
+        <div class="glass-panel rounded-2xl p-2.5 flex items-center gap-2 overflow-x-auto pointer-events-auto">
+            <div class="flex items-center gap-2 text-xs text-pink-300 font-bold px-2 whitespace-nowrap">
+                <i class="fa-solid fa-cubes"></i> 3D 轉盤場景 (共 <span id="totalWheelsCount">1</span> 個):
+            </div>
+            <div id="wheelTabsContainer" class="flex items-center gap-2 flex-nowrap overflow-x-auto py-0.5">
+                <!-- Dynamically Inserted Wheel Tabs -->
+            </div>
+            <button onclick="addNew3DWheel()" class="glass-button px-3.5 py-1.5 rounded-xl text-xs font-bold text-emerald-300 hover:text-white flex items-center gap-1.5 whitespace-nowrap ml-auto">
+                <i class="fa-solid fa-plus"></i> 新增 3D 轉盤
+            </button>
+        </div>
+
+    </div>
+
+    <!-- FLOATING ACTION BUTTONS AT BOTTOM CENTER -->
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-3 pointer-events-auto px-4 w-full max-w-md justify-center">
+        <button id="spinActiveBtn" onclick="spinCurrentWheel()" class="flex-1 py-3.5 px-6 rounded-2xl font-black text-base md:text-lg text-white bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-400 hover:from-pink-400 hover:via-purple-400 hover:to-cyan-300 shadow-[0_0_25px_rgba(255,105,180,0.5)] border border-white/40 transform active:scale-95 transition-all duration-200 flex items-center justify-center gap-2.5 group">
+            <i class="fa-solid fa-dharmachakra text-xl group-hover:rotate-180 transition-transform duration-700"></i>
+            <span>轉動當前 3D 轉盤</span>
+        </button>
+        <button onclick="spinAllWheels()" class="py-3.5 px-4 rounded-2xl font-bold text-xs text-yellow-200 bg-gradient-to-r from-amber-500/80 to-pink-500/80 glass-button hover:text-white border border-yellow-300/40 flex items-center gap-1.5 whitespace-nowrap" title="同時轉動場景中所有轉盤">
+            <i class="fa-solid fa-bolt-lightning text-yellow-300"></i> 全部同時轉！
+        </button>
+    </div>
+
+    <!-- FLOATING RIGHT SIDEBAR TOGGLE & PANEL FOR SETTINGS -->
+    <div class="fixed right-4 top-28 z-20 pointer-events-auto flex flex-col items-end">
+        <button id="sidebarToggleBtn" onclick="toggleSidebar()" class="glass-button px-4 py-2.5 rounded-2xl text-xs font-bold text-pink-200 flex items-center gap-2 shadow-xl border-pink-300/30">
+            <i class="fa-solid fa-sliders text-pink-300"></i> 轉盤設定面板
+        </button>
+
+        <div id="settingsSidebar" class="glass-panel rounded-3xl p-5 mt-3 w-80 md:w-96 flex flex-col gap-4 shadow-2xl transition-all duration-300 origin-top-right transform scale-100 hidden">
+            
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-pink-300"></i> <span id="sidebarWheelTitle">轉盤 1 設定</span>
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="deleteCurrentWheel()" class="glass-button px-2.5 py-1 rounded-xl text-[11px] text-rose-300 hover:text-rose-100" title="刪除此轉盤">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                    <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white text-base">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Wheel Title Field -->
+            <div class="flex flex-col gap-1">
+                <label class="text-[11px] text-pink-200 font-semibold">轉盤標題</label>
+                <input type="text" id="wheelTitleInput" onchange="updateWheelTitle(this.value)" class="glass-input w-full px-3 py-1.5 rounded-xl text-xs font-semibold">
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] text-pink-200 font-semibold">快速套用可愛預設</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="loadPreset('blindbox')" class="glass-button text-[11px] py-1.5 rounded-xl text-pink-200">🎁 可愛盲盒抽獎</button>
+                    <button onclick="loadPreset('food')" class="glass-button text-[11px] py-1.5 rounded-xl text-cyan-200">🥞 今天吃什麼</button>
+                    <button onclick="loadPreset('game')" class="glass-button text-[11px] py-1.5 rounded-xl text-purple-200">👑 派對大冒險</button>
+                    <button onclick="loadPreset('payer')" class="glass-button text-[11px] py-1.5 rounded-xl text-yellow-200">💳 今天誰請客</button>
+                </div>
+            </div>
+
+            <!-- Options Textarea -->
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between items-center">
+                    <label class="text-[11px] text-pink-200 font-semibold">選項內容 (一行一個)</label>
+                    <span id="segmentCountBadge" class="text-[10px] bg-pink-950/60 text-pink-300 border border-pink-500/30 px-2 py-0.5 rounded-lg">0 個選項</span>
+                </div>
+                <textarea id="wheelItemsTextarea" oninput="updateWheelItemsFromText(this.value)" rows="5" placeholder="請輸入選項，一行一個..." class="glass-input w-full p-2.5 rounded-2xl text-xs leading-relaxed resize-none"></textarea>
+            </div>
+
+            <!-- Theme Palette -->
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] text-pink-200 font-semibold">3D 琉璃配色</label>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="setWheelTheme('pastel')" class="h-7 rounded-xl bg-gradient-to-r from-pink-300 via-purple-300 to-cyan-200 border border-white/50" title="夢幻棉花糖"></button>
+                    <button onclick="setWheelTheme('candy')" class="h-7 rounded-xl bg-gradient-to-r from-pink-500 via-yellow-400 to-emerald-400 border border-white/30" title="繽紛軟糖"></button>
+                    <button onclick="setWheelTheme('ocean')" class="h-7 rounded-xl bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-500 border border-white/30" title="果凍海洋"></button>
+                    <button onclick="setWheelTheme('neon')" class="h-7 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-amber-400 border border-white/30" title="星光霓虹"></button>
+                </div>
+            </div>
+
+            <!-- Elimination Mode Toggle -->
+            <div class="flex items-center justify-between bg-black/30 p-2.5 rounded-2xl border border-white/10">
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-slate-100">淘汰模式</span>
+                    <span class="text-[10px] text-slate-300">抽中後可直接移除該項目</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="eliminationToggle" onchange="toggleEliminationMode(this.checked)" class="sr-only peer">
+                    <div class="w-10 h-5 bg-slate-700/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-500"></div>
+                </label>
+            </div>
+
+            <!-- History Summary -->
+            <div class="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
+                <span class="text-slate-300"><i class="fa-solid fa-clock-rotate-left text-pink-300"></i> 最近抽中:</span>
+                <span id="lastWinnerBadge" class="font-bold text-cyan-300">尚無紀錄</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- WINNER CELEBRATION MODAL -->
+    <div id="winnerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md hidden opacity-0 transition-all duration-300 pointer-events-auto">
+        <div class="glass-panel rounded-3xl max-w-sm w-full p-6 flex flex-col items-center gap-4 border border-pink-300/40 shadow-2xl text-center transform scale-90 transition-transform duration-300" id="winnerModalContent">
+            
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-400 via-purple-400 to-yellow-300 flex items-center justify-center text-white text-3xl shadow-lg shadow-pink-500/50 animate-bounce">
+                <i class="fa-solid fa-gift"></i>
+            </div>
+
+            <div>
+                <span class="text-xs font-bold text-pink-300 uppercase tracking-widest" id="winnerWheelName">3D 轉盤結果</span>
+                <h3 class="text-2xl md:text-3xl font-black text-white mt-1 bg-clip-text text-transparent bg-gradient-to-r from-pink-200 via-purple-200 to-cyan-200 glow-text" id="winnerResultText">
+                    火鍋
+                </h3>
+            </div>
+
+            <p class="text-xs text-pink-100/80" id="winnerSubNote">恭喜獲得此選項！</p>
+
+            <div class="flex gap-2.5 w-full mt-2">
+                <button id="modalRemoveBtn" onclick="removeWinnerSegment()" class="glass-button flex-1 py-2.5 rounded-2xl text-xs font-bold text-rose-300 hover:text-white hidden">
+                    <i class="fa-solid fa-trash-can mr-1"></i> 移除此項
+                </button>
+                <button onclick="closeWinnerModal()" class="glass-button flex-1 py-2.5 rounded-2xl font-bold text-xs text-white bg-white/10">
+                    好耶！收下
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO / HELP MODAL -->
+    <div id="infoModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-auto">
+        <div class="glass-panel rounded-3xl max-w-md w-full p-6 flex flex-col gap-4 border border-pink-300/30 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-star text-yellow-300"></i> 3D 轉盤樂園玩法
+                </h3>
+                <button onclick="toggleInfoModal()" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="text-xs text-slate-200 space-y-2.5 leading-relaxed">
+                <p><strong class="text-pink-300">🎡 多轉盤 3D 同台：</strong> 上方分頁可新增無限多個 3D 轉盤，所有轉盤同時展示在 3D 樂園場景中！</p>
+                <p><strong class="text-cyan-300">🖱️️ 3D 自由視角：</strong> 拖曳滑鼠或單指滑動可旋轉 3D 視角；滾輪縮放；直接點擊 3D 轉盤即可選取焦距。</p>
+                <p><strong class="text-purple-300">⚡ 同步群抽：</strong> 點擊「全部同時轉！」可讓 3D 場景中所有轉盤一起轉動，開獎超壯觀！</p>
+                <p><strong class="text-yellow-300">🔊 可愛 3D 彈簧音效：</strong> 內建可愛 Q 彈啵啵聲與勝利音效。</p>
+            </div>
+            <button onclick="toggleInfoModal()" class="glass-button py-2.5 rounded-2xl font-bold text-xs text-white mt-2">
+                開始探索 3D 樂園！
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* WEB AUDIO CUTE SOUND SYNTHESIZER ENGINE */
+        class CuteSoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Cute bouncy pop tick sound when notch passes pointer
+            playTickPop() {
+                if (!this.enabled) return;
+                this.init();
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                // Cute bouncy pitch drop
+                const freq = 600 + Math.random() * 250;
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.exponentialRampToValueAtTime(120, now + 0.04);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.045);
+            }
+
+            // Win celebration fan-fare chiptune sound
+            playWinChime() {
+                if (!this.enabled) return;
+                this.init();
+
+                const now = this.ctx.currentTime;
+                const arpeggio = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98]; // C5, E5, G5, C6, E6, G6
+                
+                arpeggio.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.38);
+                });
+            }
+        }
+
+        const soundEngine = new CuteSoundEngine();
+
+        /* PALETTE COLOR DEFINITIONS */
+        const THEMES = {
+            pastel: ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8baff', '#f4b6c2'],
+            candy: ['#ff4081', '#ff9100', '#ffd600', '#00e676', '#00b0ff', '#aa00ff', '#ff1744'],
+            ocean: ['#00f5d4', '#00bbf9', '#0077b6', '#48cae4', '#90e0ef', '#03045e', '#7209b7'],
+            neon: ['#f72585', '#7209b7', '#3f37c9', '#4cc9f0', '#4895ef', '#560bad', '#b5179e']
+        };
+
+        const PRESETS = {
+            blindbox: { title: '🎁 可愛盲盒抽獎', items: ['隱藏版大公仔', '粉紅棉花糖', '星光閃閃徽章', '迷你抱枕', '造型軟糖包', '限量卡牌'] },
+            food: { title: '🥞 今天吃什麼', items: ['舒芙蕾鬆餅', '草莓千層蛋糕', '日式拉麵', '韓式炸雞', '珍珠奶茶', '濃郁咖哩飯'] },
+            game: { title: '👑 派對大冒險', items: ['做 5 個裝萌動作', '模仿小貓叫聲', '給左邊朋友一個大擁抱', '唱一段兒歌', '講個冷笑話'] },
+            payer: { title: '💳 今天誰請客', items: ['幸運星小明', '壽星大大', '全體均分', '猜拳贏的請', '最可愛的人請'] }
+        };
+
+        const appState = {
+            activeWheelIndex: 0,
+            wheels: [
+                {
+                    id: 'wheel_1',
+                    title: '轉盤 1 (可愛盲盒)',
+                    items: ['隱藏版大公仔', '粉紅棉花糖', '星光閃閃徽章', '迷你抱枕', '造型軟糖包', '限量卡牌'],
+                    theme: 'pastel',
+                    eliminationMode: false,
+                    winnerIndex: null
+                }
+            ],
+            history: []
+        };
+
+        // THREE.JS GLOBAL SCENE VARIABLES
+        let scene, camera, renderer;
+        let wheel3DObjects = []; // Array of { group, discMesh, pointerMesh, canvas, ctx, texture, rotation, velocity, isSpinning, ... }
+        let raycaster, mouse;
+        let isDraggingScene = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraTarget = new THREE.Vector3(0, 0, 0);
+        let cameraRadius = 14;
+        let cameraTheta = Math.PI / 2;
+        let cameraPhi = Math.PI / 3;
+
+        function init3D() {
+            const container = document.getElementById('webgl-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0d0a1a, 0.035);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            updateCameraPosition();
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            container.appendChild(renderer.domElement);
+
+            // Raycaster
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff0f5, 1.2);
+            dirLight.position.set(10, 20, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            // Cute Colorful PointLights for Liquid Glass Specular Reflections
+            const pinkLight = new THREE.PointLight(0xff69b4, 2, 25);
+            pinkLight.position.set(-10, 8, 5);
+            scene.add(pinkLight);
+
+            const cyanLight = new THREE.PointLight(0x00ffff, 2, 25);
+            cyanLight.position.set(10, -5, 5);
+            scene.add(cyanLight);
+
+            const purpleLight = new THREE.PointLight(0xa020f0, 2, 25);
+            purpleLight.position.set(0, 10, -10);
+            scene.add(purpleLight);
+
+            // Floating Decorative 3D Cute Shapes (Donuts, Stars, Spheres)
+            createFloatingDecorations();
+
+            // Setup Mouse / Touch Controls
+            setupInteractions();
+
+            // Build Initial 3D Wheels
+            rebuild3DScene();
+
+            // Resize listener
+            window.addEventListener('resize', onWindowResize);
+
+            // Start 3D Animation Loop
+            animate3D();
+        }
+
+        function createFloatingDecorations() {
+            const decorGroup = new THREE.Group();
+
+            const glassMat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                metalness: 0.1,
+                roughness: 0.1,
+                transmission: 0.9,
+                thickness: 0.5,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            const colors = [0xffb6c1, 0x87cefa, 0xdda0dd, 0xffe4b5, 0x98fb98];
+
+            for (let i = 0; i < 35; i++) {
+                let geom;
+                const rand = Math.random();
+                if (rand < 0.35) {
+                    geom = new THREE.TorusGeometry(0.3 + Math.random() * 0.2, 0.12, 16, 32); // Cute Donuts
+                } else if (rand < 0.7) {
+                    geom = new THREE.SphereGeometry(0.25 + Math.random() * 0.2, 32, 32); // Bubbles
+                } else {
+                    geom = new THREE.IcosahedronGeometry(0.3, 0); // Gems
+                }
+
+                const mat = glassMat.clone();
+                mat.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+
+                const mesh = new THREE.Mesh(geom, mat);
+                mesh.position.set(
+                    (Math.random() - 0.5) * 30,
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 20 - 5
+                );
+                mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                
+                // Save floating parameters
+                mesh.userData = {
+                    initialY: mesh.position.y,
+                    speed: 0.5 + Math.random() * 1.2,
+                    rotSpeed: (Math.random() - 0.5) * 0.02
+                };
+
+                decorGroup.add(mesh);
+            }
+
+            scene.add(decorGroup);
+            scene.userData.decorGroup = decorGroup;
+        }
+
+        function rebuild3DScene() {
+            // Remove old wheel objects from scene
+            wheel3DObjects.forEach(obj => scene.remove(obj.group));
+            wheel3DObjects = [];
+
+            const numWheels = appState.wheels.length;
+            const spacing = 6.0; // Distance between wheels
+            const startX = -((numWheels - 1) * spacing) / 2;
+
+            appState.wheels.forEach((wheelData, idx) => {
+                const wheelGroup = new THREE.Group();
+                wheelGroup.position.set(startX + idx * spacing, 0, 0);
+
+                // 1. Dynamic Canvas Texture for Segment Labels
+                const canvas = document.createElement('canvas');
+                canvas.width = 1024;
+                canvas.height = 1024;
+                const ctx = canvas.getContext('2d');
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+                drawTextureCanvas(canvas, ctx, wheelData);
+                texture.needsUpdate = true;
+
+                // 2. 3D Main Disc Geometry (Cylinder with Glass Top Texture)
+                const radius = 2.4;
+                const height = 0.3;
+                const discGeom = new THREE.CylinderGeometry(radius, radius, height, 64);
+
+                // Materials: Side glass, Top canvas texture, Bottom glass
+                const glassSideMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+                    metalness: 0.1,
+                    roughness: 0.15,
+                    transmission: 0.85,
+                    thickness: 1.2,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.1,
+                    transparent: true,
+                    opacity: 0.95
+                });
+
+                const topTextureMat = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    roughness: 0.3,
+                    metalness: 0.1
+                });
+
+                const discMaterials = [
+                    glassSideMat,   // Cylinder Sides
+                    topTextureMat,  // Top Face (Canvas Texture)
+                    glassSideMat    // Bottom Face
+                ];
+
+                const discMesh = new THREE.Mesh(discGeom, discMaterials);
+                discMesh.rotation.x = Math.PI / 2; // Face forward
+                discMesh.castShadow = true;
+                discMesh.receiveShadow = true;
+                wheelGroup.add(discMesh);
+
+                // 3. 3D Outer Glossy Metallic Rim Ring
+                const ringGeom = new THREE.TorusGeometry(radius + 0.05, 0.1, 16, 64);
+                const ringMat = new THREE.MeshStandardMaterial({
+                    color: 0xffe4e1,
+                    metalness: 0.8,
+                    roughness: 0.2,
+                });
+                const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+                wheelGroup.add(ringMesh);
+
+                // 4. 3D Chubby Center Knob (Cute Heart/Sphere Knob)
+                const knobGeom = new THREE.SphereGeometry(0.45, 32, 32);
+                const knobMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xff69b4,
+                    clearcoat: 1.0,
+                    roughness: 0.1,
+                    metalness: 0.2
+                });
+                const knobMesh = new THREE.Mesh(knobGeom, knobMat);
+                knobMesh.position.z = 0.25;
+                knobMesh.scale.set(1, 1, 0.6);
+                wheelGroup.add(knobMesh);
+
+                // 5. 3D Cute Pointer (A chubby star diamond pointer on top)
+                const pointerGroup = new THREE.Group();
+                pointerGroup.position.set(0, radius + 0.25, 0.25);
+
+                const pointerGeom = new THREE.ConeGeometry(0.3, 0.7, 4);
+                const pointerMat = new THREE.MeshStandardMaterial({
+                    color: 0x00ffff,
+                    roughness: 0.2,
+                    metalness: 0.5,
+                    emissive: 0x0088aa,
+                    emissiveIntensity: 0.3
+                });
+                const pointerMesh = new THREE.Mesh(pointerGeom, pointerMat);
+                pointerMesh.rotation.z = Math.PI; // Point downwards
+                pointerGroup.add(pointerMesh);
+
+                wheelGroup.add(pointerGroup);
+
+                // Add to Scene
+                scene.add(wheelGroup);
+
+                // Store Reference Object
+                wheel3DObjects.push({
+                    index: idx,
+                    wheelData: wheelData,
+                    group: wheelGroup,
+                    discMesh: discMesh,
+                    pointerGroup: pointerGroup,
+                    canvas: canvas,
+                    ctx: ctx,
+                    texture: texture,
+                    rotation: 0,
+                    velocity: 0,
+                    isSpinning: false,
+                    lastPassedSegment: -1,
+                    pointerAngleOffset: 0 // For spring recoil physics animation
+                });
+            });
+
+            updateCameraFocus();
+            renderWheelTabsUI();
+            updateSidebarUI();
+            document.getElementById('totalWheelsCount').innerText = appState.wheels.length;
+        }
+
+        function drawTextureCanvas(canvas, ctx, wheelData) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = width / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const items = wheelData.items.length > 0 ? wheelData.items : ['請新增選項'];
+            const numSegments = items.length;
+            const anglePerSegment = (Math.PI * 2) / numSegments;
+            const palette = THEMES[wheelData.theme] || THEMES.pastel;
+
+            for (let i = 0; i < numSegments; i++) {
+                const startAngle = i * anglePerSegment - Math.PI / 2;
+                const endAngle = startAngle + anglePerSegment;
+                const colorHex = palette[i % palette.length];
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius - 15, startAngle, endAngle);
+                ctx.closePath();
+
+                // Gradient slice
+                const grad = ctx.createRadialGradient(centerX, centerY, 50, centerX, centerY, radius);
+                grad.addColorStop(0, colorHex);
+                grad.addColorStop(1, adjustColor(colorHex, -25));
+
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Slice Divider Lines
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+
+                // Text Label Drawing
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + anglePerSegment / 2);
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+
+                const fontSize = Math.max(28, Math.min(52, Math.floor(480 / Math.sqrt(numSegments))));
+                ctx.font = `bold ${fontSize}px "Fredoka", "Noto Sans TC", sans-serif`;
+
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+                ctx.shadowBlur = 10;
+
+                const labelText = items[i].length > 9 ? items[i].substring(0, 9) + '…' : items[i];
+                ctx.fillText(labelText, radius - 60, 0);
+                ctx.restore();
+            }
+
+            // Outer Rim Line on Canvas
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius - 15, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 12;
+            ctx.stroke();
+        }
+
+        function adjustColor(hex, percent) {
+            let num = parseInt(hex.replace('#', ''), 16),
+                amt = Math.round(2.55 * percent),
+                R = (num >> 16) + amt,
+                G = (num >> 8 & 0x00FF) + amt,
+                B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
+        }
+
+        function updateCameraFocus() {
+            const spacing = 6.0;
+            const numWheels = appState.wheels.length;
+            const startX = -((numWheels - 1) * spacing) / 2;
+            const activeX = startX + appState.activeWheelIndex * spacing;
+
+            cameraTarget.set(activeX, 0, 0);
+        }
+
+        function updateCameraPosition() {
+            camera.position.x = cameraTarget.x + cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+            camera.position.y = cameraTarget.y + cameraRadius * Math.cos(cameraPhi);
+            camera.position.z = cameraTarget.z + cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+            camera.lookAt(cameraTarget);
+        }
+
+        function resetCameraView() {
+            cameraRadius = 14;
+            cameraTheta = Math.PI / 2;
+            cameraPhi = Math.PI / 3;
+            updateCameraFocus();
+        }
+
+        function setupInteractions() {
+            const dom = renderer.domElement;
+
+            dom.addEventListener('mousedown', (e) => {
+                isDraggingScene = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            dom.addEventListener('mousemove', (e) => {
+                if (isDraggingScene) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+
+                    cameraTheta -= deltaX * 0.008;
+                    cameraPhi -= deltaY * 0.008;
+                    // Clamp phi so camera doesn't flip
+                    cameraPhi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, cameraPhi));
+
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (isDraggingScene) {
+                    isDraggingScene = false;
+                }
+            });
+
+            // Click to Select 3D Wheel
+            dom.addEventListener('click', (e) => {
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                
+                const intersects = raycaster.intersectObjects(scene.children, true);
+                for (let hit of intersects) {
+                    // Check if hit belongs to a 3D wheel group
+                    wheel3DObjects.forEach(obj => {
+                        if (obj.group.children.includes(hit.object) || hit.object.parent === obj.group) {
+                            if (appState.activeWheelIndex !== obj.index) {
+                                switchActive3DWheel(obj.index);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Scroll to Zoom
+            dom.addEventListener('wheel', (e) => {
+                cameraRadius += e.deltaY * 0.01;
+                cameraRadius = Math.max(6, Math.min(25, cameraRadius));
+            });
+        }
+
+        function spin3DWheelObject(obj) {
+            if (obj.isSpinning || obj.wheelData.items.length < 1) return;
+
+            soundEngine.init();
+            obj.isSpinning = true;
+
+            const minSpins = 5;
+            const maxSpins = 8;
+            obj.velocity = 0.4 + Math.random() * 0.15;
+            obj.friction = 0.985 + Math.random() * 0.003;
+            obj.lastPassedSegment = -1;
+        }
+
+        function spinCurrentWheel() {
+            const activeObj = wheel3DObjects[appState.activeWheelIndex];
+            if (activeObj) spin3DWheelObject(activeObj);
+        }
+
+        function spinAllWheels() {
+            wheel3DObjects.forEach(obj => spin3DWheelObject(obj));
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+
+            // 1. Update Camera Position smoothly
+            updateCameraPosition();
+
+            // 2. Animate Floating Decorations
+            const decorGroup = scene.userData.decorGroup;
+            if (decorGroup) {
+                const time = Date.now() * 0.001;
+                decorGroup.children.forEach(mesh => {
+                    mesh.position.y = mesh.userData.initialY + Math.sin(time * mesh.userData.speed) * 0.3;
+                    mesh.rotation.x += mesh.userData.rotSpeed;
+                    mesh.rotation.y += mesh.userData.rotSpeed;
+                });
+            }
+
+            // 3. Update 3D Wheel Rotations & Physics
+            wheel3DObjects.forEach(obj => {
+                if (obj.isSpinning) {
+                    obj.rotation += obj.velocity;
+                    obj.rotation %= (Math.PI * 2);
+                    obj.velocity *= obj.friction;
+
+                    // Rotate the 3D disc mesh (Z-axis in group space)
+                    obj.discMesh.rotation.z = obj.rotation;
+
+                    // Calculate pointed segment
+                    const numSegments = obj.wheelData.items.length;
+                    const anglePerSegment = (Math.PI * 2) / numSegments;
+                    
+                    // Pointer is at Top (PI/2 angle)
+                    let normalizedAngle = (Math.PI / 2 - obj.rotation) % (Math.PI * 2);
+                    if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
+
+                    const currentSegment = Math.floor(normalizedAngle / anglePerSegment);
+
+                    if (currentSegment !== obj.lastPassedSegment) {
+                        soundEngine.playTickPop();
+                        obj.pointerAngleOffset = -0.3; // Spring trigger displacement
+                        obj.lastPassedSegment = currentSegment;
+                    }
+
+                    // Pointer Spring Physics Lerp
+                    obj.pointerAngleOffset *= 0.8;
+                    obj.pointerGroup.rotation.z = obj.pointerAngleOffset;
+
+                    // Stop condition
+                    if (obj.velocity < 0.001) {
+                        obj.isSpinning = false;
+                        obj.velocity = 0;
+                        obj.pointerGroup.rotation.z = 0;
+
+                        const winningIndex = currentSegment;
+                        const winningItem = obj.wheelData.items[winningIndex] || '未知項目';
+
+                        obj.wheelData.winnerIndex = winningIndex;
+
+                        soundEngine.playWinChime();
+                        
+                        if (obj.index === appState.activeWheelIndex) {
+                            showWinnerModal(obj.wheelData.title, winningItem, obj.wheelData.eliminationMode);
+                        }
+                        
+                        document.getElementById('lastWinnerBadge').innerText = winningItem;
+                    }
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        function renderWheelTabsUI() {
+            const container = document.getElementById('wheelTabsContainer');
+            container.innerHTML = appState.wheels.map((w, idx) => {
+                const isActive = idx === appState.activeWheelIndex;
+                const activeStyle = isActive 
+                    ? 'bg-gradient-to-r from-pink-500/40 to-cyan-400/40 border-pink-300 text-white font-bold ring-1 ring-pink-300' 
+                    : 'text-pink-100/70 border-white/10 hover:border-white/30';
+
+                return `
+                    <button onclick="switchActive3DWheel(${idx})" class="glass-button px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-2 transition-all ${activeStyle}">
+                        <i class="fa-solid fa-compact-disc text-xs ${isActive ? 'text-pink-300 animate-spin-slow' : 'text-slate-400'}"></i>
+                        <span class="truncate max-w-[110px]">${w.title}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function switchActive3DWheel(index) {
+            appState.activeWheelIndex = index;
+            updateCameraFocus();
+            renderWheelTabsUI();
+            updateSidebarUI();
+        }
+
+        function addNew3DWheel() {
+            const newIndex = appState.wheels.length + 1;
+            const newWheel = {
+                id: `wheel_${Date.now()}`,
+                title: `3D 轉盤 ${newIndex}`,
+                items: ['選項 1', '選項 2', '選項 3', '選項 4'],
+                theme: 'pastel',
+                eliminationMode: false,
+                winnerIndex: null
+            };
+            appState.wheels.push(newWheel);
+            rebuild3DScene();
+            switchActive3DWheel(appState.wheels.length - 1);
+        }
+
+        function deleteCurrentWheel() {
+            if (appState.wheels.length <= 1) return;
+
+            appState.wheels.splice(appState.activeWheelIndex, 1);
+            appState.activeWheelIndex = Math.max(0, appState.activeWheelIndex - 1);
+            rebuild3DScene();
+        }
+
+        function updateSidebarUI() {
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            if (!wheel) return;
+
+            document.getElementById('sidebarWheelTitle').innerText = wheel.title;
+            document.getElementById('wheelTitleInput').value = wheel.title;
+            document.getElementById('eliminationToggle').checked = wheel.eliminationMode;
+            document.getElementById('wheelItemsTextarea').value = wheel.items.join('\n');
+            document.getElementById('segmentCountBadge').innerText = `${wheel.items.length} 個選項`;
+        }
+
+        function updateWheelTitle(val) {
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            wheel.title = val || '未命名轉盤';
+            renderWheelTabsUI();
+            document.getElementById('sidebarWheelTitle').innerText = wheel.title;
+        }
+
+        function updateWheelItemsFromText(text) {
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            wheel.items = lines;
+            document.getElementById('segmentCountBadge').innerText = `${lines.length} 個選項`;
+
+            // Refresh texture on active 3D object
+            const activeObj = wheel3DObjects[appState.activeWheelIndex];
+            if (activeObj) {
+                drawTextureCanvas(activeObj.canvas, activeObj.ctx, wheel);
+                activeObj.texture.needsUpdate = true;
+            }
+        }
+
+        function setWheelTheme(themeKey) {
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            wheel.theme = themeKey;
+            
+            const activeObj = wheel3DObjects[appState.activeWheelIndex];
+            if (activeObj) {
+                drawTextureCanvas(activeObj.canvas, activeObj.ctx, wheel);
+                activeObj.texture.needsUpdate = true;
+            }
+        }
+
+        function toggleEliminationMode(checked) {
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            wheel.eliminationMode = checked;
+        }
+
+        function loadPreset(key) {
+            const preset = PRESETS[key];
+            if (!preset) return;
+
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            wheel.title = preset.title;
+            wheel.items = [...preset.items];
+
+            updateSidebarUI();
+            renderWheelTabsUI();
+
+            const activeObj = wheel3DObjects[appState.activeWheelIndex];
+            if (activeObj) {
+                drawTextureCanvas(activeObj.canvas, activeObj.ctx, wheel);
+                activeObj.texture.needsUpdate = true;
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('settingsSidebar');
+            if (sidebar.classList.contains('hidden')) {
+                sidebar.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('hidden');
+            }
+        }
+
+        function showWinnerModal(wheelTitle, resultText, isElimination) {
+            document.getElementById('winnerWheelName').innerText = wheelTitle;
+            document.getElementById('winnerResultText').innerText = resultText;
+            
+            const removeBtn = document.getElementById('modalRemoveBtn');
+            const subNote = document.getElementById('winnerSubNote');
+
+            if (isElimination) {
+                removeBtn.classList.remove('hidden');
+                subNote.innerText = '已開啟淘汰模式，可點擊下方按鈕移除該選項。';
+            } else {
+                removeBtn.classList.add('hidden');
+                subNote.innerText = '恭喜抽中此選項！';
+            }
+
+            const modal = document.getElementById('winnerModal');
+            const content = document.getElementById('winnerModalContent');
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-90');
+                content.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeWinnerModal() {
+            const modal = document.getElementById('winnerModal');
+            const content = document.getElementById('winnerModalContent');
+
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function removeWinnerSegment() {
+            const wheel = appState.wheels[appState.activeWheelIndex];
+            if (wheel && wheel.winnerIndex !== null) {
+                wheel.items.splice(wheel.winnerIndex, 1);
+                updateSidebarUI();
+
+                const activeObj = wheel3DObjects[appState.activeWheelIndex];
+                if (activeObj) {
+                    drawTextureCanvas(activeObj.canvas, activeObj.ctx, wheel);
+                    activeObj.texture.needsUpdate = true;
+                }
+                closeWinnerModal();
+            }
+        }
+
+        function toggleSound() {
+            soundEngine.enabled = !soundEngine.enabled;
+            const icon = document.getElementById('soundIcon');
+            const text = document.getElementById('soundStatusText');
+
+            if (soundEngine.enabled) {
+                icon.className = 'fa-solid fa-volume-high text-cyan-300';
+                text.innerText = '可愛音效';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-400';
+                text.innerText = '靜音';
+            }
+        }
+
+        function toggleInfoModal() {
+            const modal = document.getElementById('infoModal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.remove('opacity-0'), 10);
+            } else {
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Spacebar shortcut
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    spinCurrentWheel();
+                }
+            }
+        });
+
+        // Initialize 3D Engine on Window Load
+        window.onload = function() {
+            init3D();
+        };
+    </script>
+</body>
+</html>
